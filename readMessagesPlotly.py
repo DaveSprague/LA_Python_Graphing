@@ -1,11 +1,15 @@
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
+import plotly.graph_objs as go
+import plotly.express as px
+import plotly.subplots as sp
 import serial
 from datetime import datetime
 import csv
 import os
 import re
+from plotly.subplots import make_subplots
+from dash import Dash, dcc, html
+from dash.dependencies import Input, Output
 
 data_file = 'data.csv'
 
@@ -41,7 +45,8 @@ def read_serial_data(serial_port, baudrate=115600):
     ser = serial.Serial(serial_port, baudrate, timeout=1)
     data = read_data_from_file(data_file)
     
-    def update(frame, data):
+    def update_data():
+        nonlocal data
         if ser.in_waiting > 0:
             line = ser.readline()
             print(line)  # Print the raw line for debugging
@@ -55,27 +60,50 @@ def read_serial_data(serial_port, baudrate=115600):
                 data.append((timestamp, battery, solar))
                 write_data_to_file(data_file, [(timestamp.strftime('%Y-%m-%d %H:%M:%S'), battery, solar)])
         
-        # Limit data to the last 1000 points
+        # Limit data to the last 10000 points
         data = data[-10000:]
         
-        # Convert to DataFrame for easy plotting
-        df = pd.DataFrame(data, columns=['Timestamp', 'Battery Voltage (V)', 'Solar Voltage (V)'])
-        df.set_index('Timestamp', inplace=True)
-        
-        ax.clear()
-        ax.plot(df.index, df['Battery Voltage (V)'], label='Battery Voltage')
-        ax.plot(df.index, df['Solar Voltage (V)'], label='Solar Voltage')
-        ax.set_ylim(0, max(7, df.max().max()))
-        ax.set_xlabel("Time")
-        ax.set_ylabel("Voltage (V)")
-        ax.set_title("Battery and Solar Voltage Over Time")
-        ax.legend()
+        return data
 
-    fig, ax = plt.subplots()
-    ani = animation.FuncAnimation(fig, update, fargs=(data,), interval=1000, cache_frame_data=False)
-    plt.show()
+    return update_data
 
-    ser.close()
+app = Dash(__name__)
+update_data = read_serial_data('/dev/ttyUSB0')
 
-if __name__ == "__main__":
-    read_serial_data('/dev/cu.usbserial-0001')
+app.layout = html.Div([
+    dcc.Graph(id='live-update-graph'),
+    dcc.Interval(
+        id='interval-component',
+        interval=1*1000,  # in milliseconds
+        n_intervals=0
+    )
+])
+
+@app.callback(Output('live-update-graph', 'figure'),
+              Input('interval-component', 'n_intervals'))
+def update_graph_live(n):
+    data = update_data()
+    df = pd.DataFrame(data, columns=['Timestamp', 'Battery Voltage (V)', 'Solar Voltage (V)'])
+    df.set_index('Timestamp', inplace=True)
+    
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    
+    fig.add_trace(
+        go.Scatter(x=df.index, y=df['Battery Voltage (V)'], name='Battery Voltage'),
+        secondary_y=False,
+    )
+    
+    fig.add_trace(
+        go.Scatter(x=df.index, y=df['Solar Voltage (V)'], name='Solar Voltage'),
+        secondary_y=True,
+    )
+    
+    fig.update_layout(title_text="Battery and Solar Voltage Over Time")
+    fig.update_xaxes(title_text="Time")
+    fig.update_yaxes(title_text="Battery Voltage (V)", secondary_y=False)
+    fig.update_yaxes(title_text="Solar Voltage (V)", secondary_y=True)
+    
+    return fig
+
+if __name__ == '__main__':
+    app.run_server(debug=True)
