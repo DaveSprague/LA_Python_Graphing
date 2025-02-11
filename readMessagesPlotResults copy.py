@@ -36,7 +36,7 @@ def parse_message(message):
     
     return battery_voltage, solar_voltage
 
-def read_serial_data(serial_port, baudrate=115200):
+def read_serial_data(serial_port, baudrate=115600):
     """Read data from the serial port."""
     ser = serial.Serial(serial_port, baudrate, timeout=1)
     data = read_data_from_file(data_file)
@@ -44,55 +44,34 @@ def read_serial_data(serial_port, baudrate=115200):
     def update(frame, data):
         if ser.in_waiting > 0:
             line = ser.readline()
-            # example: S1,V4106,C55,U841,s6835,r-58,n12
             print(line)  # Print the raw line for debugging
             decoded_line = line.decode('utf-8', errors='ignore').strip()
-            # print(decoded_line)  # Print the raw line for debugging
-            if len(decoded_line) < 20 or len(decoded_line) > 40:
-                print(f"Invalid line length: {len(decoded_line)}")
-                return
+            print(decoded_line)  # Print the raw line for debugging
             battery, solar = parse_message(decoded_line)
-            print(f"{datetime.now()}  Battery={battery}, Solar={solar}")  # Print parsed values for debugging
+            print(f"Parsed: Battery={battery}, Solar={solar}")  # Print parsed values for debugging
             if battery is not None and solar is not None:
                 timestamp = datetime.now()
+                print(datetime.now())  # Print the timestamp for debugging
                 data.append((timestamp, battery, solar))
                 write_data_to_file(data_file, [(timestamp.strftime('%Y-%m-%d %H:%M:%S'), battery, solar)])
         
-        # Limit data to the last 10000 points
+        # Limit data to the last 1000 points
         data = data[-10000:]
         
         # Convert to DataFrame for easy plotting
         df = pd.DataFrame(data, columns=['Timestamp', 'Battery Voltage (V)', 'Solar Voltage (V)'])
         df.set_index('Timestamp', inplace=True)
         
-        # Compute the sample-to-sample battery voltage change per unit time (microvolts per minute)
-        df['Battery Voltage Change (µV/min)'] = df['Battery Voltage (V)'].diff() * 1_000_000 / df.index.to_series().diff().dt.total_seconds() * 60
-        
-        # Debug print to check the computed values
-        # print(df[['Battery Voltage (V)', 'Solar Voltage (V)', 'Battery Voltage Change (µV/min)']].tail(10))
-        
-        # Smooth the computed value with a moving average of 10 minutes
-        df['Battery Voltage Change (µV/min)'] = df['Battery Voltage Change (µV/min)'].rolling('10min').mean()
-        
         ax.clear()
-        ax2 = ax.twinx()
-        
-        ax.plot(df.index, df['Battery Voltage (V)'], label='Battery Voltage', color='tab:blue')
-        ax.plot(df.index, df['Solar Voltage (V)'], label='Solar Voltage', color='tab:orange')
-        ax2.plot(df.index, df['Battery Voltage Change (µV/min)'], label='Battery Voltage Change (µV/min)', color='tab:green')
-        
-        ax.set_ylim(0, max(8, df[['Battery Voltage (V)', 'Solar Voltage (V)']].max().max()))
-        ax2.set_ylim(df['Battery Voltage Change (µV/min)'].min(), df['Battery Voltage Change (µV/min)'].max())
-        
+        ax.plot(df.index, df['Battery Voltage (V)'], label='Battery Voltage')
+        ax.plot(df.index, df['Solar Voltage (V)'], label='Solar Voltage')
+        ax.set_ylim(0, max(7, df.max().max()))
         ax.set_xlabel("Time")
         ax.set_ylabel("Voltage (V)")
-        ax2.set_ylabel("Change (µV/min)")
         ax.set_title("Battery and Solar Voltage Over Time")
-        
-        ax.legend(loc='upper left')
-        ax2.legend(loc='upper right')
+        ax.legend()
 
-    fig, ax = plt.subplots(figsize=(15, 6))  # Set the figure size to be wider
+    fig, ax = plt.subplots()
     ani = animation.FuncAnimation(fig, update, fargs=(data,), interval=1000, cache_frame_data=False)
     plt.show()
 
@@ -100,4 +79,3 @@ def read_serial_data(serial_port, baudrate=115200):
 
 if __name__ == "__main__":
     read_serial_data('/dev/cu.usbserial-0001')
-
