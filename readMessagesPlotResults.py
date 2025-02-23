@@ -107,7 +107,7 @@ def read_serial_data(serial_port, baudrate=115200):
         axs[0, 1].legend(loc='upper left', fontsize=8)
         
         axs[1, 0].plot(df.index, df['Battery Voltage (V)'], label='Battery Voltage', color='tab:blue')
-        axs[1, 0].set_ylim(3.8, max(4.0, df['Battery Voltage (V)'].max()))
+        axs[1, 0].set_ylim(1.0, max(4.0, df['Battery Voltage (V)'].max()))
         axs[1, 0].set_xlabel("Time", fontsize=8)
         axs[1, 0].set_ylabel("Battery Voltage (V)", fontsize=8)
         axs[1, 0].set_title("Battery Voltage Over Time", fontsize=10)
