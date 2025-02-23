@@ -128,3 +128,4 @@ cython_debug/
 
 # Ignore all files csv files
 .csv
+.DS_Store
