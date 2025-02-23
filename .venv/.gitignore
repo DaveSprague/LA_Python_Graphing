@@ -123,9 +123,6 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-# VS Code
-.vscode/
-
 # Ignore all files csv files
 .csv
 .DS_Store
