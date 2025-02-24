@@ -23,6 +23,8 @@ def get_data_directory():
             data_dir = os.path.expanduser('~/Library/Application Support/TideSensorPlotter')
         elif sys.platform == 'win32':  # Windows
             data_dir = os.path.join(os.environ.get('APPDATA'), 'TideSensorPlotter')
+        else:
+            raise RuntimeError("Unsupported platform")
     else:
         # Running in development
         data_dir = os.path.dirname(os.path.abspath(__file__))
@@ -79,7 +81,7 @@ def parse_message(message):
     for key, value in matches:
         if key in field_map:
             if key == 'V' or key == 's':
-                data[field_map[key]] = int(value) / 1000.0  # Convert to volts
+                data[field_map[key]] = int(value) / 1000.0  # Convert milliVolts to Volts
             else:
                 data[field_map[key]] = int(value)
     
