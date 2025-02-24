@@ -1,4 +1,5 @@
 import sys
+import numpy as np
 import pandas as pd
 import matplotlib
 matplotlib.use('Qt5Agg')  # Changed to Qt5Agg
@@ -200,7 +201,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(container)
 
     def get_serial_ports(self):
-        ports = [port.device for port in list_ports.comports()]
+        ports = [port.device for port in list_ports.comports() if port.device.startswith('/dev/cu.usbserial')]
         return ports
 
     def start_reading(self):
@@ -245,6 +246,9 @@ class MainWindow(QMainWindow):
         df = pd.DataFrame(data, columns=['Timestamp', 'Battery Voltage (V)', 'Solar Voltage (V)', 'Ultrasonic Range', 'RSSI'])
         df.set_index('Timestamp', inplace=True)
 
+        # Replace missing data with NaN
+        df.replace({0: np.nan}, inplace=True)
+
         for ax in self.axs.flat:
             ax.clear()
 
@@ -262,7 +266,7 @@ class MainWindow(QMainWindow):
         self.axs[0, 0].xaxis.set_major_locator(date_locator)
         self.axs[0, 0].xaxis.set_major_locator(MaxNLocator(nbins=6))  # Limit the number of ticks
 
-        self.axs[0, 1].plot(df.index, df['RSSI'], label='RSSI', color='tab:green')
+        self.axs[0, 1].plot(df.index, df['RSSI'], label='RSSI', color='tab:red')
         self.axs[0, 1].set_ylim(-130, max(0, df['RSSI'].max()))
         self.axs[0, 1].set_xlabel("Time", fontsize=10)
         self.axs[0, 1].set_ylabel("RSSI", fontsize=10)
